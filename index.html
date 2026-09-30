@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Restaurant AI Assistant - Demo</title>
+<style>
+:root{--bg:#efeae2;--panel:#fff;--me:#d9fdd3;--bot:#fff;--text:#111;--mute:#667781;--accent:#128c7e;--chip:#e7f6f3;--border:#ddd;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b141a;--panel:#1f2c34;--me:#005c4b;--bot:#1f2c34;--text:#e9edef;--mute:#8696a0;--accent:#25d3a6;--chip:#16332f;--border:#2a3942}}
+:root[data-theme="dark"]{--bg:#0b141a;--panel:#1f2c34;--me:#005c4b;--bot:#1f2c34;--text:#e9edef;--mute:#8696a0;--accent:#25d3a6;--chip:#16332f;--border:#2a3942}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font:15px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column;max-width:520px;margin:0 auto}
+header{background:var(--accent);color:#fff;padding:10px 14px;display:flex;align-items:center;gap:10px}
+header b{display:block}header small{opacity:.85}
+.av{width:38px;height:38px;border-radius:50%;background:#fff3;display:grid;place-items:center;font-size:20px}
+nav{display:flex;background:var(--panel);border-bottom:1px solid var(--border)}
+nav button{flex:1;padding:10px;border:0;background:none;color:var(--mute);font:inherit;font-weight:600;border-bottom:3px solid transparent}
+nav button.on{color:var(--accent);border-color:var(--accent)}
+.badge{background:#e53935;color:#fff;border-radius:10px;padding:0 6px;font-size:12px;margin-left:4px}
+main{flex:1;overflow-y:auto;padding:12px}
+.msg{max-width:82%;padding:8px 11px;border-radius:10px;margin:4px 0;white-space:pre-wrap;box-shadow:0 1px 1px #0002}
+.bot{background:var(--bot);border-top-left-radius:2px}
+.me{background:var(--me);margin-left:auto;border-top-right-radius:2px}
+.sys{background:#fff8c5;color:#333;border:1px dashed #c9a800;max-width:90%}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.chips button{background:var(--chip);color:var(--accent);border:1px solid var(--accent);border-radius:16px;padding:6px 12px;font:inherit;font-weight:600}
+.typing{color:var(--mute);font-style:italic}
+form{display:flex;gap:8px;padding:8px;background:var(--panel);border-top:1px solid var(--border)}
+form input{flex:1;padding:10px 14px;border-radius:20px;border:1px solid var(--border);background:var(--bg);color:var(--text);font:inherit}
+form button{border:0;background:var(--accent);color:#fff;border-radius:50%;width:42px;font-size:18px}
+.card{background:var(--panel);border-radius:10px;padding:12px;margin-bottom:10px;border-left:5px solid var(--accent)}
+.card.b{border-color:#f4a300}.card small{color:var(--mute)}
+.note{color:var(--mute);text-align:center;padding:30px 10px}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<header><div class="av">🍽️</div><div><b>Your Restaurant</b><small>AI assistant · demo</small></div></header>
+<nav><button id="t1" class="on">📱 Customer chat</button><button id="t2">👨‍🍳 Kitchen screen<span id="bd" class="badge hidden">0</span></button></nav>
+<main id="chat"></main>
+<main id="kitchen" class="hidden"><div class="note" id="empty">No orders yet.<br>Place an order or booking in the chat and it will appear here instantly.</div></main>
+<form id="f"><input id="in" placeholder="Type a message…" autocomplete="off"><button>➤</button></form>
+<script>
+const MENU={"Pap & Beef Stew":{p:65,a:"none"},"Chicken & Chips":{p:75,a:"none"},"Vegetable Curry":{p:60,a:"nuts"},"Fish & Chips":{p:80,a:"fish, gluten"},"Soft Drink":{p:15,a:"none"}};
+const $=id=>document.getElementById(id), chat=$("chat");
+let mode="idle",cart={},book={},n=0,count=0;
+const total=()=>Object.entries(cart).reduce((s,[k,q])=>s+MENU[k].p*q,0);
+const lines=()=>Object.entries(cart).map(([k,q])=>q+"× "+k).join(", ");
+function add(t,c){const d=document.createElement("div");d.className="msg "+c;d.textContent=t;chat.appendChild(d);chat.scrollTop=1e9;return d}
+function chips(list){const d=document.createElement("div");d.className="chips";list.forEach(l=>{const b=document.createElement("button");b.textContent=l;b.onclick=()=>{d.remove();say(l)};d.appendChild(b)});chat.appendChild(d);chat.scrollTop=1e9}
+function bot(t,list,ms=700){const ty=add("typing…","bot typing");return new Promise(r=>setTimeout(()=>{ty.remove();add(t,"bot");if(list)chips(list);r()},ms))}
+function say(t){add(t,"me");handle(t)}
+const home=["📋 Menu","📅 Book a table","🛒 Order food","⚠️ Allergens"];
+function kitchen(type,title,body){$("empty").remove?.();count++;const b=$("bd");b.textContent=count;b.classList.remove("hidden");
+ const c=document.createElement("div");c.className="card "+type;c.innerHTML="<b></b><br><span></span><br><small></small>";
+ c.children[0].textContent=title;c.children[2].textContent=body;c.children[4].textContent=new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});$("kitchen").prepend(c)}
+function orderChips(){const l=Object.keys(MENU).map(k=>"+ "+k);if(total())l.push("✅ Done ("+total()+" LSL)");chips(l)}
+async function handle(t){
+ const x=t.toLowerCase();
+ if(mode==="order"&&t.startsWith("+ ")){const k=t.slice(2);cart[k]=(cart[k]||0)+1;await bot("Added "+k+".\nSo far: "+lines()+"\nTotal: "+total()+" LSL",null,400);return orderChips()}
+ if(mode==="order"&&x.includes("done")&&total()){mode="pay";return bot("Your order:\n"+lines()+"\nTotal: "+total()+" LSL\n\nHow would you like to pay?",["M-Pesa","EcoCash","Cancel"])}
+ if(mode==="size"&&/^\d+$/.test(x)){book.size=x;mode="time";return bot("Great, "+x+" people. What time?",["Today 18:00","Today 19:00","Today 20:00","Tomorrow 19:00"])}
+ if(mode==="time"&&/\d\d:\d\d/.test(x)){mode="idle";kitchen("b","📅 Table for "+book.size,t);return bot("✅ Booked! Table for "+book.size+" — "+t+".\nWe'll send a reminder before you arrive. Anything else?",home)}
+ if(mode==="pay"&&(x==="m-pesa"||x==="ecocash")){mode="wait";const pr=t;await bot("Sending a PIN prompt to your phone…",null,600);
+  const s=add("📲 "+pr+": Pay "+total()+" LSL to Your Restaurant?\nEnter your PIN to confirm.","msg sys");const b=document.createElement("div");b.className="chips";
+  const btn=document.createElement("button");btn.textContent="🔐 Enter PIN (demo)";btn.onclick=async()=>{b.remove();await bot("Waiting for confirmation from "+pr+"…",null,900);
+   n++;const id="O"+(100+n);mode="idle";kitchen("o","🧾 Order "+id+" · PAID "+total()+" LSL",lines());
+   await bot("✅ Payment received! Order "+id+" is being prepared. Ready in about 20 minutes.\n\n(The kitchen screen just got your order.)",home);cart={}};
+  b.appendChild(btn);chat.appendChild(b);chat.scrollTop=1e9;return}
+ if(x.includes("cancel")){mode="idle";cart={};return bot("No problem, order cancelled.",home)}
+ if(x.includes("menu")){mode="idle";return bot("Today's menu:\n"+Object.entries(MENU).map(([k,v])=>"• "+k+" — "+v.p+" LSL").join("\n"),home)}
+ if(x.includes("allerg")){return bot("Allergen info:\n"+Object.entries(MENU).map(([k,v])=>"• "+k+": "+v.a).join("\n")+"\n\nAlways tell staff about serious allergies.",home)}
+ if(x.includes("book")||x.includes("table")||x.includes("reserv")){mode="size";book={};return bot("Happy to book a table! How many people?",["2","4","6","8"])}
+ if(x.includes("order")||x.includes("food")||x.includes("hungry")){mode="order";cart={};await bot("Let's build your order. Tap items to add them:",null,500);return orderChips()}
+ if(/complain|refund|manager|angry|bad/.test(x)){kitchen("b","🙋 Needs a human",t);return bot("I'm sorry about that. I've alerted our team and a staff member will reply to you shortly.",home)}
+ if(/hi|hello|dumela|hey/.test(x)){return bot("Dumela! 👋 Welcome to Your Restaurant. I can show the menu, book a table, or take your order and payment.",home)}
+ return bot("I'm not sure I understood. Here's what I can help with:",home)}
+$("f").onsubmit=e=>{e.preventDefault();const v=$("in").value.trim();if(v){$("in").value="";say(v)}};
+function tab(k){$("chat").classList.toggle("hidden",k!==1);$("kitchen").classList.toggle("hidden",k!==2);$("f").classList.toggle("hidden",k!==1);$("t1").classList.toggle("on",k===1);$("t2").classList.toggle("on",k===2);if(k===2){count=0;$("bd").classList.add("hidden")}}
+$("t1").onclick=()=>tab(1);$("t2").onclick=()=>tab(2);
+bot("Dumela! 👋 Welcome to Your Restaurant. I can show the menu, book a table, or take your order and payment. What would you like?",home,300);
+</script>
+</body>
+</html>
